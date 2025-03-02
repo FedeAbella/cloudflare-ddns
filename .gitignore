@@ -1,0 +1,5 @@
+.env
+domains.json
+src/__pycache__
+.python-version
+src/.ropeproject/

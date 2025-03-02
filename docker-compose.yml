@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    container_name: cloudflare-ddns
+    env_file: .env
+    environment:
+      - TZ=America/Montevideo
+    read_only: true
+    restart: always
+    volumes:
+      - ./domains.json:/app/domains.json
