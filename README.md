@@ -38,6 +38,7 @@ There's two ways of running this: as a python script, or using
     `bestest` to the array)
   - The root DNS record can be added the same way as in the Cloudflare
     dashboard, by using `@` as the subdomain name
+- (Optional) a `RUN_EVERY` environment variable which contains the number of seconds to wait before the next IP check. If not included, checks every 60s.
 
 ### As a Python script
 
