@@ -54,8 +54,7 @@ There's two ways of running this: as a python script, or using
 
 ### Docker (recommended)
 
-I haven't yet uploaded an image to Dockerhub, but the `Dockerfile` file required
-to create an image is included.
+#### Build your own image
 
 1. Make sure `docker` and `docker-compose`
    [are installed](https://docs.docker.com/desktop/setup/install/linux/)
@@ -67,8 +66,30 @@ to create an image is included.
    docker compose up -d
    ```
 
-You can check the docker logs to see if the container is running the script
-properly:
+#### Use dockerhub image
+
+1. Copy the `docker-compose.yml` file to your desire location and change the
+   line:
+
+   ```yml
+   build: .
+   ```
+
+   to
+
+   ```yml
+   image: fedeabella/cloudflare-ddns
+   ```
+
+1. Put both the `.env` and `domains.json` in the same directory as the
+   `docker-compose.yml` file and run
+
+   ```bash
+   docker compose up -d
+   ```
+
+For either method, you can check the docker logs to see if the container is
+running the script properly:
 
 ```bash
 docker logs cloudflare-ddns
