@@ -55,11 +55,11 @@ def d(client, zone_id):
         zone_dns, list
     ), f"retrieved zone dns records is not a list: {zone_dns}"
 
-    return [
-        DNS(dns["id"], dns["name"], dns["content"])
+    return {
+        dns["name"]: DNS(dns["id"], dns["name"], dns["content"])
         for dns in zone_dns
         if dns["type"] == "A"
-    ]
+    }
 
 
 def b(client, zone_id, records):
@@ -72,10 +72,10 @@ def b(client, zone_id, records):
         response_patches, list
     ), f"patch response records is not a list: {response_patches}"
 
-    return [
-        DNS(patch["id"], patch["name"], patch["content"])
+    return {
+        patch["name"]: DNS(patch["id"], patch["name"], patch["content"])
         for patch in response_patches
-    ]
+    }
 
 
 def get_zone_name(client, zone_id):
