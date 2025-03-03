@@ -9,27 +9,15 @@ import schedule
 from cloudflare import Client
 
 from cloudflare_caller import batch_update, get_dns, get_zone_name
+from constants import (CF_BASE_URL, DEFAULT_RUN_TIME_SECONDS, DOMAIN_FILE,
+                       DOMAIN_PATTERN, IP_PATTERN, IP_URLS)
 
-DOMAIN_FILE = "./domains.json"
-
-IP_URLS = [
-    "https://icanhazip.com",
-    "https://api.ipify.org",
-    "https://ipinfo.io/ip",
-    "https://ipecho.net/plain",
-    "https://ifconfig.me/ip",
-]
-DEFAULT_RUN_TIME_SECONDS = "60"
-
-BASE_URL = "https://api.cloudflare.com/client/v4"
 API_TOKEN = getenv("API_TOKEN")
 ZONE_ID = getenv("ZONE_ID")
 RUN_EVERY = int(getenv("RUN_EVERY", DEFAULT_RUN_TIME_SECONDS))
 
-CF_CLIENT = Client(api_token=API_TOKEN, base_url=BASE_URL)
+CF_CLIENT = Client(api_token=API_TOKEN, base_url=CF_BASE_URL)
 
-DOMAIN_PATTERN = r"@|[a-z0-9]([a-z0-9-].*[a-z0-9])?"
-IP_PATTERN = r"(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}"
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
