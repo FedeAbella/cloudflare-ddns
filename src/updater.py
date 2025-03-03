@@ -1,5 +1,5 @@
-import logging
 import time
+from datetime import datetime
 from json import load
 from os import getenv
 from re import fullmatch
@@ -7,36 +7,23 @@ from re import fullmatch
 import httpx
 import schedule
 from cloudflare import Client
+from dotenv import load_dotenv
 
 from cloudflare_caller import batch_update, get_dns, get_zone_name
+from constants import (CF_BASE_URL, DEFAULT_RUN_TIME_SECONDS, DOMAIN_FILE,
+                       DOMAIN_PATTERN, IP_PATTERN, IP_URLS)
+from logger import logger
 
-DOMAIN_FILE = "./domains.json"
+load_dotenv()
 
-IP_URLS = [
-    "https://icanhazip.com",
-    "https://api.ipify.org",
-    "https://ipinfo.io/ip",
-    "https://ipecho.net/plain",
-    "https://ifconfig.me/ip",
-]
-DEFAULT_RUN_TIME_SECONDS = "60"
-
-BASE_URL = "https://api.cloudflare.com/client/v4"
 API_TOKEN = getenv("API_TOKEN")
 ZONE_ID = getenv("ZONE_ID")
 RUN_EVERY = int(getenv("RUN_EVERY", DEFAULT_RUN_TIME_SECONDS))
 
-CF_CLIENT = Client(api_token=API_TOKEN, base_url=BASE_URL)
+CF_CLIENT = Client(api_token=API_TOKEN, base_url=CF_BASE_URL)
 
-DOMAIN_PATTERN = r"@|[a-z0-9]([a-z0-9-].*[a-z0-9])?"
-IP_PATTERN = r"(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}"
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-fh = logging.StreamHandler()
-fh_formatter = logging.Formatter("%(asctime)s :: %(levelname)s :: %(message)s")
-fh.setFormatter(fh_formatter)
-logger.addHandler(fh)
+DNS_CACHE = {}
+UNMATCHED_BLACKLIST = {}
 
 
 def get_local_ip():
@@ -58,76 +45,118 @@ def get_local_ip():
     return None
 
 
-def get_domains_to_update(zone_name):
+def get_config_domains(zone_name):
+    global DNS_CACHE
+
     with open(DOMAIN_FILE) as f:
-        domains_to_update = load(f)
+        config_domains = load(f)
 
     assert isinstance(
-        domains_to_update, list
-    ), "domains file did not contain a list"
+        config_domains, list
+    ), "domains.json file did not contain a list"
 
-    for domain in domains_to_update:
+    for domain in config_domains:
         assert isinstance(domain, str), f"domain {domain} is not a string"
         assert (
             fullmatch(DOMAIN_PATTERN, domain) is not None
         ), f"domain {domain} does not match subdomain regex pattern"
 
-    return set(
+    domain_names = set(
         [
             f"{domain}.{zone_name}" if domain != "@" else f"{zone_name}"
-            for domain in domains_to_update
+            for domain in config_domains
         ]
     )
 
+    DNS_CACHE = {
+        domain: dns
+        for domain, dns in DNS_CACHE.items()
+        if domain in domain_names
+    }
 
-def update_domains(zone_name):
+    return domain_names
+
+
+def get_domains_to_update(config_domains, local_ip):
+    domains_to_update = set()
+    for domain in config_domains.difference(UNMATCHED_BLACKLIST.keys()):
+        if domain not in DNS_CACHE:
+            logger.info(f"Uncached domain {domain} found")
+            domains_to_update.add(domain)
+            continue
+        if DNS_CACHE[domain].ip != local_ip:
+            domains_to_update.add(domain)
+
+    return domains_to_update
+
+
+def clean_blacklist():
+    global UNMATCHED_BLACKLIST
+
+    UNMATCHED_BLACKLIST = {
+        domain: blacklisted_on
+        for domain, blacklisted_on in UNMATCHED_BLACKLIST.items()
+        if (datetime.now() - blacklisted_on).days > 0
+    }
+
+
+def check(zone_name):
     try:
-        domains_to_update = get_domains_to_update(zone_name)
+        config_domains = get_config_domains(zone_name)
     except AssertionError as e:
         logger.error("Failed to load domains from json file: ", e)
-        return
+        return None, None
 
-    if len(domains_to_update) == 0:
-        logger.warning("No domains in json file")
-        return
+    if len(config_domains) == 0:
+        logger.warning("No domains in domains.jon file")
+        return None, None
 
     local_ip = get_local_ip()
     if local_ip is None:
         logger.error("Could not get a local ip")
-        return
-    logger.info(f"Current IP: {local_ip}")
+        return None, None
+
+    domains_to_update = get_domains_to_update(config_domains, local_ip)
+
+    if len(domains_to_update) == 0:
+        logger.info(
+            f"Current IP: {local_ip}. All DNS records match, no need to update"
+        )
+        return None, None
+
+    logger.info(
+        f"Current IP: {local_ip}. Need to update the following DNS records: {', '.join(domains_to_update)}"
+    )
 
     cf_dns = get_dns(CF_CLIENT, ZONE_ID)
     if cf_dns is None:
         logger.error("Could not fetch Cloudflare domains")
-        return
+        return None, None
 
     if len(cf_dns) == 0:
         logger.warning("No domains found in Cloudflare Zone")
-        return
+        return None, None
 
-    unmatched_domains = domains_to_update.difference(
-        set([dns.name for dns in cf_dns])
-    )
-    for unmatched in unmatched_domains:
-        logger.warning(f"Domain {unmatched} not found in Cloudflare zone")
+    dns_to_update = []
+    for domain in domains_to_update:
+        if domain not in cf_dns.keys():
+            UNMATCHED_BLACKLIST[domain] = datetime.now()
+            logger.warning(
+                f"Domain {domain} not found in Cloudflare zone. Blacklisting for 24hs"
+            )
+            continue
+        if cf_dns[domain].ip == local_ip:
+            DNS_CACHE[domain] = cf_dns[domain]
+            logger.info(
+                f"Domain {domain} already pointing to local IP {local_ip}"
+            )
+            continue
+        dns_to_update.append(cf_dns[domain])
 
-    if len(unmatched_domains) == len(domains_to_update):
-        logger.warning(
-            "No matched domains in Cloudflare zone. Nothing to update"
-        )
-        return
+    return (dns_to_update, local_ip)
 
-    dns_to_update = [
-        dns
-        for dns in cf_dns
-        if dns.name in domains_to_update and dns.ip != local_ip
-    ]
 
-    if len(dns_to_update) == 0:
-        logger.info(f"All Cloudflare domains point to current IP {local_ip}")
-        return
-
+def update(dns_to_update, local_ip):
     for dns in dns_to_update:
         dns.ip = local_ip
 
@@ -139,8 +168,22 @@ def update_domains(zone_name):
         )
         return
 
-    for dns in updated_dns:
-        logger.info(f"Updated {dns.name} to IP {dns.ip}")
+    for domain, dns in updated_dns.items():
+        DNS_CACHE[domain] = dns
+        logger.info(f"Updated {domain} to IP {dns.ip}")
+
+
+def check_and_update(zone_name):
+    dns_to_update, local_ip = check(zone_name)
+
+    if dns_to_update is None or local_ip is None:
+        return
+
+    if len(dns_to_update) == 0:
+        logger.info("Nothing left to update")
+        return
+
+    update(dns_to_update, local_ip)
 
 
 def main():
@@ -155,9 +198,10 @@ def main():
     logger.info(f"Client set up and using zone: {zone_name}")
     logger.info(f"Updating DNS records now and every {RUN_EVERY} seconds")
 
-    update_domains(zone_name)
+    check_and_update(zone_name)
 
-    schedule.every(RUN_EVERY).seconds.do(update_domains, zone_name)
+    schedule.every(RUN_EVERY).seconds.do(check_and_update, zone_name)
+    schedule.every().day.do(clean_blacklist)
     while True:
         schedule.run_pending()
         time.sleep(1)

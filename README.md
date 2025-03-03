@@ -19,8 +19,10 @@ none that I found were completely to my liking, so I decided to make my own.
   Cloudflare operations
 - Uses the Cloudflare Batch API operation to update all DNS records in a single
   API call
-- Only up to 2 API calls per update cycle: one to retrieve the DNS IPs, one to
-  retrieve current DNS status, and one to perform updates (if needed)
+- Caches Cloudflare DNS records so Cloudflare API only needs to be called when
+  something changes
+- Only to 2 API calls per update cycle: one to retrieve current DNS status, and
+  one to perform updates (if needed)
 
 ## How to use
 
@@ -38,7 +40,8 @@ There's two ways of running this: as a python script, or using
     `bestest` to the array)
   - The root DNS record can be added the same way as in the Cloudflare
     dashboard, by using `@` as the subdomain name
-- (Optional) a `RUN_EVERY` environment variable which contains the number of seconds to wait before the next IP check. If not included, checks every 60s.
+- (Optional) a `RUN_EVERY` environment variable which contains the number of
+  seconds to wait before the next IP check. If not included, checks every 60s.
 
 ### As a Python script
 
