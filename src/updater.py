@@ -7,10 +7,13 @@ from re import fullmatch
 import httpx
 import schedule
 from cloudflare import Client
+from dotenv import load_dotenv
 
 from cloudflare_caller import batch_update, get_dns, get_zone_name
 from constants import (CF_BASE_URL, DEFAULT_RUN_TIME_SECONDS, DOMAIN_FILE,
                        DOMAIN_PATTERN, IP_PATTERN, IP_URLS)
+
+load_dotenv()
 
 API_TOKEN = getenv("API_TOKEN")
 ZONE_ID = getenv("ZONE_ID")
