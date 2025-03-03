@@ -1,5 +1,11 @@
+# App data files
 .env
 domains.json
-src/__pycache__
+
+# Pyenv
 .python-version
+
+# Dev directories
+.ropeproject/
+src/__pycache__
 src/.ropeproject/
