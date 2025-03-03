@@ -1,5 +1,6 @@
 # App config
 DEFAULT_RUN_TIME_SECONDS = "60"
+LOGGER_FORMAT = "%(asctime)s :: %(levelname)s :: %(message)s"
 
 # App data
 DOMAIN_FILE = "./domains.json"

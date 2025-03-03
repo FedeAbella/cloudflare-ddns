@@ -1,4 +1,3 @@
-import logging
 import time
 from json import load
 from os import getenv
@@ -12,6 +11,7 @@ from dotenv import load_dotenv
 from cloudflare_caller import batch_update, get_dns, get_zone_name
 from constants import (CF_BASE_URL, DEFAULT_RUN_TIME_SECONDS, DOMAIN_FILE,
                        DOMAIN_PATTERN, IP_PATTERN, IP_URLS)
+from logger import logger
 
 load_dotenv()
 
@@ -20,14 +20,6 @@ ZONE_ID = getenv("ZONE_ID")
 RUN_EVERY = int(getenv("RUN_EVERY", DEFAULT_RUN_TIME_SECONDS))
 
 CF_CLIENT = Client(api_token=API_TOKEN, base_url=CF_BASE_URL)
-
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-fh = logging.StreamHandler()
-fh_formatter = logging.Formatter("%(asctime)s :: %(levelname)s :: %(message)s")
-fh.setFormatter(fh_formatter)
-logger.addHandler(fh)
 
 
 def get_local_ip():

@@ -1,13 +1,6 @@
-import logging
-
 from cloudflare import APIConnectionError, APIStatusError
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-fh = logging.StreamHandler()
-fh_formatter = logging.Formatter("%(asctime)s :: %(levelname)s :: %(message)s")
-fh.setFormatter(fh_formatter)
-logger.addHandler(fh)
+from logger import logger
 
 
 class DNS:
