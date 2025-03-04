@@ -51,9 +51,8 @@ There's two ways of running this: as a python script, or using
 1. Create a python `venv` and install the required packages using `pip` and the
    `requirements` file.
 
-1. Put both the `.env` and `domains.json` file in the `src` directory (only the
-   `domains.json` file really needs to be there, but for convenience sake), and
-   run
+1. Put the `.env` file in the `src` directory, and create a `src/config`
+   subdirectory where to put the `domains.json` file, then run
 
    ```bash
    source .env && python updater.py
@@ -66,8 +65,9 @@ There's two ways of running this: as a python script, or using
 1. Make sure `docker` and `docker-compose`
    [are installed](https://docs.docker.com/desktop/setup/install/linux/)
 
-1. Put both the `.env` and `domains.json` in the same directory as the
-   `Dockerfile` and `docker-compose.yml` files and run
+1. Put the `.env` file in the same directory as the `Dockerfile` and
+   `docker-compose.yml` files. Create a `./config` subdirectory and put the
+   `domains.json` file there. Then run
 
    ```bash
    docker compose up -d
@@ -75,7 +75,7 @@ There's two ways of running this: as a python script, or using
 
 #### Use dockerhub image
 
-1. Copy the `docker-compose.yml` file to your desire location and change the
+1. Copy the `docker-compose.yml` file to your desired location and change the
    line:
 
    ```yml
@@ -88,8 +88,9 @@ There's two ways of running this: as a python script, or using
    image: fedeabella/cloudflare-ddns
    ```
 
-1. Put both the `.env` and `domains.json` in the same directory as the
-   `docker-compose.yml` file and run
+1. Put the `.env` file in the same directory as the `docker-compose.yml` file.
+   Create a `./config` subdirectory and put the `domains.json` file there. Then
+   run
 
    ```bash
    docker compose up -d
