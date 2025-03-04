@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from cloudflare_caller import batch_update, get_dns, get_zone_name
 from constants import (CF_BASE_URL, DEFAULT_RUN_TIME_SECONDS, DOMAIN_FILE,
-                       DOMAIN_PATTERN, IP_PATTERN, IP_URLS)
+                       DOMAIN_PATTERN, IP_PATTERN, IP_URLS, SECONDS_PER_HOUR)
 from logger import logger
 
 load_dotenv()
@@ -25,6 +25,8 @@ CF_CLIENT = Client(api_token=API_TOKEN, base_url=CF_BASE_URL)
 DNS_CACHE = {}
 UNMATCHED_BLACKLIST = {}
 
+LAST_NO_UPDATE_LOG_DATETIME = None
+
 
 def get_local_ip():
     for url in IP_URLS:
@@ -37,7 +39,7 @@ def get_local_ip():
                 ), f"retrieved local ip does not match ipv4 format: {local_ip}"
                 return local_ip
             logger.warning(
-                f"Failed to get ip from {url}, status code: {ip_response.status_code}"
+                f"Failed to get IP from {url}: {ip_response.status_code}"
             )
         except Exception as e:
             logger.warning(f"Failed to get ip from {url}, with exception {e}")
@@ -101,6 +103,8 @@ def clean_blacklist():
 
 
 def check(zone_name):
+    global LAST_NO_UPDATE_LOG_DATETIME
+
     try:
         config_domains = get_config_domains(zone_name)
     except AssertionError as e:
@@ -119,13 +123,17 @@ def check(zone_name):
     domains_to_update = get_domains_to_update(config_domains, local_ip)
 
     if len(domains_to_update) == 0:
-        logger.info(
-            f"Current IP: {local_ip}. All DNS records match, no need to update"
-        )
+        if (
+            LAST_NO_UPDATE_LOG_DATETIME is None
+            or (datetime.now() - LAST_NO_UPDATE_LOG_DATETIME).seconds
+            > SECONDS_PER_HOUR
+        ):
+            LAST_NO_UPDATE_LOG_DATETIME = datetime.now()
+            logger.info(f"IP: {local_ip}. All DNS records match")
         return None, None
 
     logger.info(
-        f"Current IP: {local_ip}. Need to update the following DNS records: {', '.join(domains_to_update)}"
+        f"IP: {local_ip}. Need to update: {', '.join(domains_to_update)}"
     )
 
     cf_dns = get_dns(CF_CLIENT, ZONE_ID)
@@ -142,7 +150,7 @@ def check(zone_name):
         if domain not in cf_dns.keys():
             UNMATCHED_BLACKLIST[domain] = datetime.now()
             logger.warning(
-                f"Domain {domain} not found in Cloudflare zone. Blacklisting for 24hs"
+                f"Domain {domain} not found in zone. Blacklisting for 24hs"
             )
             continue
         if cf_dns[domain].ip == local_ip:

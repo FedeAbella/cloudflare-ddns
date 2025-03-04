@@ -6,4 +6,4 @@ COPY ./src/*.py ./
 
 RUN pip install --no-cache-dir -r ./requirements
 
-CMD ["python", "-u", "./updater.py"]
+CMD ["python", "-u", "updater.py"]

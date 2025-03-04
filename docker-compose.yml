@@ -8,4 +8,6 @@ services:
     read_only: true
     restart: always
     volumes:
-      - ./domains.json:/app/domains.json
+      - type: bind
+        source: ./config
+        target: /app/config
